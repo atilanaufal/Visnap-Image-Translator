@@ -1,11 +1,17 @@
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from PySide6.QtGui import *
+import os
 import random
+import shutil
+import subprocess
+import tempfile
 
 class CaptureImage(QWidget):
-    def __init__(self):
+    def __init__(self, save_dir=None):
         super().__init__()
+        self.save_dir = save_dir or os.getcwd()
+        self.last_capture_path = None
         self.setMinimumSize(1920, 1080)
         # self.setWindowFlags(
         #     Qt.WindowStaysOnTopHint
@@ -58,10 +64,21 @@ class CaptureImage(QWidget):
             self.selected_rect = self.rubber.geometry()
             if hasattr(self, "selected_rect") and not self.selected_rect.isNull():
                 pix = self.capture_rect(self.selected_rect)
-                # save file or show preview
-                self.count += 1
-                pix.save(f"capture{self.count}.png", "PNG")
-                print(f"Saved capture{self.count}.png")
+                if pix and not pix.isNull():
+                    self.count += 1
+                    path = os.path.join(self.save_dir, f"capture{self.count}.png")
+                    if pix.save(path, "PNG"):
+                        self.last_capture_path = path
+                        print(f"Saved {path}")
+                    else:
+                        QMessageBox.warning(self, "Capture Failed", f"Gagal menyimpan gambar ke:\n{path}")
+                else:
+                    QMessageBox.warning(
+                        self,
+                        "Capture Failed",
+                        "Gagal mengambil layar. Di Linux Wayland, screenshot aplikasi sering diblokir. "
+                        "Coba login memakai sesi X11/Xorg atau jalankan dengan QT_QPA_PLATFORM=xcb.",
+                    )
             self.setAttribute(Qt.WA_DeleteOnClose) 
             self.close()
             # keep rubber visible until user confirm; optionally auto-capture here
@@ -81,9 +98,16 @@ class CaptureImage(QWidget):
         Grab the underlying screen pixels for the selected rectangle.
         Rect is in overlay coordinates (global coordinates), so map to screen coordinates.
         """
+        self.rubber.hide()
+        self.hint.hide()
+        QApplication.processEvents()
+        QThread.msleep(120)
+
         # find screen under mouse (works multi-monitor)
         cursor_pos = QCursor.pos()
-        screen = QGuiApplication.screenAt(cursor_pos)
+        screen = QGuiApplication.screenAt(cursor_pos) or QGuiApplication.primaryScreen()
+        if not screen:
+            return QPixmap()
 
         # If multiple monitors placed with offsets, grabWindow uses global coords with offsets.
         # Use grabWindow(0, x, y, w, h)
@@ -93,4 +117,33 @@ class CaptureImage(QWidget):
         w = rect.width()
         h = rect.height()
 
-        return screen.grabWindow(0, x, y, w, h)
+        pixmap = screen.grabWindow(0, x, y, w, h)
+        if pixmap.isNull() and os.environ.get("XDG_SESSION_TYPE", "").lower() == "wayland":
+            print("Screen capture returned empty pixmap on Wayland.")
+            pixmap = self._capture_wayland_with_grim(x, y, w, h)
+        return pixmap
+
+    def _capture_wayland_with_grim(self, x, y, w, h):
+        if not shutil.which("grim"):
+            return QPixmap()
+
+        fd, path = tempfile.mkstemp(prefix="visnap_capture_", suffix=".png", dir=self.save_dir)
+        os.close(fd)
+        try:
+            result = subprocess.run(
+                ["grim", "-g", f"{x},{y} {w}x{h}", path],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if result.returncode != 0:
+                print(result.stderr.strip())
+                return QPixmap()
+            return QPixmap(path)
+        except Exception as exc:
+            print(f"grim capture failed: {exc}")
+            return QPixmap()
+        finally:
+            if os.path.exists(path):
+                os.remove(path)

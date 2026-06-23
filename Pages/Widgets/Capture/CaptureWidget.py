@@ -1,4 +1,5 @@
 from Pages.Widgets.Capture.CaptureImage import CaptureImage
+import sys
 
 class CaptureWidget:
     def __init__(self, parent):
@@ -6,10 +7,15 @@ class CaptureWidget:
         self.capture = None
         
     def open_overlay(self):
-        self.capture = CaptureImage()
+        self.capture = CaptureImage(getattr(self.parent, "capture_dir", None))
         self.parent.windows.append(self.capture)
-        self.capture.showFullScreen()
         self.parent.hide()
+        if sys.platform.startswith("win"):
+            self.capture.showFullScreen()
+        else:
+            self.capture.show()
+        self.capture.raise_()
+        self.capture.activateWindow()
         self.capture.destroyed.connect(self.cleanup)
 
     def cleanup(self):

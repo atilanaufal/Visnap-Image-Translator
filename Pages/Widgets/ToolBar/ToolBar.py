@@ -1,7 +1,8 @@
 from PySide6.QtWidgets import QToolBar, QComboBox, QWidget, QHBoxLayout, QSizePolicy, QSpacerItem, QInputDialog
 from PySide6.QtGui import QIcon, QAction
 from PySide6.QtCore import QSize
-from Func.Tool_Func import upload_image, save_file
+from Func.Tool_Func import upload_image, save_file, load_image_from_link
+import os
 
 
 class ToolBarMixin:
@@ -12,17 +13,24 @@ class ToolBarMixin:
         tool_bar = QToolBar("Toolbar", self.parent)
         tool_bar.setIconSize(QSize(35, 35))
         tool_bar.setMovable(False)
+        base_dir = getattr(self.parent, "base_dir", os.getcwd())
 
         # Helper function buat tambah tombol biar singkat
         def add_action(icon, text, callback):
-            action = tool_bar.addAction(QIcon(f"Assets/Icons/{icon}.svg"), text)
+            icon_path = os.path.join(base_dir, "Assets", "Icons", f"{icon}.svg")
+            action = tool_bar.addAction(QIcon(icon_path), text)
             action.triggered.connect(callback)
             tool_bar.addSeparator()
             return action
 
         # Tambahkan semua tombol
         add_action("capture", "Capture", self.parent.capture_widget.open_overlay )
-        add_action("link", "Link", lambda: QInputDialog().getText(self.parent, "Insert Image Link", "Link"))
+        def open_link_dialog():
+            link, ok = QInputDialog.getText(self.parent, "Insert Image Link", "Link")
+            if ok:
+                load_image_from_link(self.parent, link)
+
+        add_action("link", "Link", open_link_dialog)
         add_action("upload2", "Upload", lambda: upload_image(self.parent))
         
         # Dropdown bahasa

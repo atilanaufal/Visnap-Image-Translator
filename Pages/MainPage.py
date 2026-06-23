@@ -13,6 +13,10 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("ViSnap - Translator")
         self.setMinimumSize(700, 360)
+        self.base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        self.capture_dir = os.path.join(self.base_dir, "captures")
+        self.current_image_path = None
+        os.makedirs(self.capture_dir, exist_ok=True)
 
         # === inisialisasi komponen utama ===
         self.windows = []
@@ -32,5 +36,5 @@ class MainWindow(QMainWindow):
 
         # File watcher — update otomatis bila ada file baru
         self.watcher = QFileSystemWatcher(self)
-        self.watcher.addPath(os.getcwd())
+        self.watcher.addPath(self.capture_dir)
         self.watcher.directoryChanged.connect(self.viewer.show_image)  # ✅ gunakan viewer

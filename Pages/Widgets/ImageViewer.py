@@ -23,10 +23,28 @@ class ImageViewer(QWidget):
         layout.addWidget(translate_btn)
         layout.addWidget(self.label)
 
+    def set_image_path(self, path):
+        if not path or not os.path.isfile(path):
+            return False
+
+        img = QImage(path)
+        if img.isNull():
+            return False
+
+        pixmap = QPixmap.fromImage(img)
+        self.label.setPixmap(pixmap.scaledToWidth(self.scroll_area.viewport().width(), Qt.SmoothTransformation))
+        self.parent.current_image_path = path
+        return True
+
+    def set_pixmap(self, pixmap, source_path=None):
+        if not pixmap or pixmap.isNull():
+            return False
+
+        self.label.setPixmap(pixmap.scaledToWidth(self.scroll_area.viewport().width(), Qt.SmoothTransformation))
+        self.parent.current_image_path = source_path
+        return True
+
     def show_image(self):
         if hasattr(self.parent.capture_widget, "capture") and self.parent.capture_widget.capture:
-            path = f"capture{self.parent.capture_widget.capture.count}.png"
-            if os.path.isfile(path):
-                img = QImage(path)
-                pixmap = QPixmap.fromImage(img)
-                self.label.setPixmap(pixmap.scaledToWidth(self.scroll_area.viewport().width(), Qt.SmoothTransformation))
+            path = getattr(self.parent.capture_widget.capture, "last_capture_path", None)
+            self.set_image_path(path)
