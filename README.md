@@ -4,8 +4,6 @@ ViSnap is a desktop image translation tool built with Python and PySide6. It is 
 
 The application can load an image from a screen capture, a local file, or an internet image URL, then run OCR and machine translation directly on the image. ViSnap renders the translated result back into the viewer so the output can be reviewed and saved.
 
-![ViSnap home screen](tampilan_aplikasi/home.png)
-
 ## Features
 
 - Capture a selected screen area and load it directly into the translator.
